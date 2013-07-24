@@ -203,7 +203,7 @@ class API extends Handler {
 			$override_order = false;
 			switch ($_REQUEST["order_by"]) {
 				case "date_reverse":
-					$override_order = "date_entered, updated";
+					$override_order = "score DESC, date_entered, updated";
 					break;
 				case "feed_dates":
 					$override_order = "updated DESC";
@@ -309,7 +309,7 @@ class API extends Handler {
 
 		if ($article_id) {
 
-			$query = "SELECT id,title,link,content,cached_content,feed_id,comments,int_id,
+			$query = "SELECT id,title,link,content,feed_id,comments,int_id,
 				marked,unread,published,score,
 				".SUBSTRING_FOR_DATE."(updated,1,16) as updated,
 				author,(SELECT title FROM ttrss_feeds WHERE id = feed_id) AS feed_title
@@ -338,7 +338,7 @@ class API extends Handler {
 						"comments" => $line["comments"],
 						"author" => $line["author"],
 						"updated" => (int) strtotime($line["updated"]),
-						"content" => $line["cached_content"] != "" ? $line["cached_content"] : $line["content"],
+						"content" => $line["content"],
 						"feed_id" => $line["feed_id"],
 						"attachments" => $attachments,
 						"score" => (int)$line["score"],
@@ -638,6 +638,11 @@ class API extends Handler {
 			$headlines = array();
 
 			while ($line = db_fetch_assoc($result)) {
+				$line["content_preview"] = truncate_string(strip_tags($line["content_preview"]), 100);
+				foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_QUERY_HEADLINES) as $p) {
+					$line = $p->hook_query_headlines($line, 100, true);
+				}
+
 				$is_updated = ($line["last_read"] == "" &&
 					($line["unread"] != "t" && $line["unread"] != "1"));
 
@@ -660,28 +665,22 @@ class API extends Handler {
 						"tags" => $tags,
 					);
 
-					if ($include_attachments)
-						$headline_row['attachments'] = get_article_enclosures(
-							$line['id']);
+				if ($include_attachments)
+					$headline_row['attachments'] = get_article_enclosures(
+						$line['id']);
 
-				if ($show_excerpt) {
-					$excerpt = truncate_string(strip_tags($line["content_preview"]), 100);
-					$headline_row["excerpt"] = $excerpt;
-				}
+				if (!$show_excerpt)
+					$headline_row["excerpt"] = $line["content_preview"];
 
 				if ($show_content) {
 
-					if ($line["cached_content"] != "") {
-						$line["content_preview"] =& $line["cached_content"];
-					}
-
 					if ($sanitize_content) {
 						$headline_row["content"] = sanitize(
-							$line["content_preview"],
+							$line["content"],
 							sql_bool_to_bool($line['hide_images']),
 							false, $line["site_url"]);
 					} else {
-						$headline_row["content"] = $line["content_preview"];
+						$headline_row["content"] = $line["content"];
 					}
 				}
 
@@ -699,6 +698,7 @@ class API extends Handler {
 				$headline_row["always_display_attachments"] = sql_bool_to_bool($line["always_display_enclosures"]);
 
 				$headline_row["author"] = $line["author"];
+
 				$headline_row["score"] = (int)$line["score"];
 
 				foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_RENDER_ARTICLE_API) as $p) {

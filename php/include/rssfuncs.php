@@ -671,7 +671,6 @@
 							updated,
 							content,
 							content_hash,
-							cached_content,
 							no_orig_date,
 							date_updated,
 							date_entered,
@@ -686,7 +685,6 @@
 							'$entry_timestamp_fmt',
 							'$entry_content',
 							'$content_hash',
-							'',
 							$no_orig_date,
 							NOW(),
 							'$date_feed_processed',
@@ -1060,11 +1058,6 @@
 				}
 
 				_debug("article processed", $debug_enabled);
-			}
-
-			if (!$last_updated) {
-				_debug("new feed, catching it up...", $debug_enabled);
-				catchup_feed($feed, false, $owner_uid);
 			}
 
 			_debug("purging feed...", $debug_enabled);

@@ -20,6 +20,24 @@ class FeedParser {
 
 		$error = libxml_get_last_error();
 
+		// libxml compiled without iconv?
+		if ($error && $error->code == 32) {
+			if (preg_match('/^(<\?xml[\t\n\r ].*?encoding=["\'])(.+?)(["\'].*?\?>)/s', $data, $matches) === 1) {
+				libxml_clear_errors();
+
+				$enc = $matches[2];
+
+				$data = iconv($enc, 'UTF-8//IGNORE', $data);
+				$data = preg_replace('/^<\?xml[\t\n\r ].*?\?>/s', $matches[1] . "UTF-8" . $matches[3] , $data);
+
+				$this->doc = new DOMDocument();
+				$this->doc->loadXML($data);
+
+				$error = libxml_get_last_error();
+		   }
+		}
+
+		// some terrible invalid unicode entity?
 		if ($error && $error->code == 9) {
 			libxml_clear_errors();
 
@@ -51,24 +69,28 @@ class FeedParser {
 
 		$this->xpath = $xpath;
 
-		$root = $xpath->query("(//atom03:feed|//atom:feed|//channel|//rdf:rdf|//rdf:RDF)")->item(0);
+		$root = $xpath->query("(//atom03:feed|//atom:feed|//channel|//rdf:rdf|//rdf:RDF)");
 
 		if ($root) {
-			switch (mb_strtolower($root->tagName)) {
-			case "rdf:rdf":
-				$this->type = $this::FEED_RDF;
-				break;
-			case "channel":
-				$this->type = $this::FEED_RSS;
-				break;
-			case "feed":
-				$this->type = $this::FEED_ATOM;
-				break;
-			default:
-				if( !isset($this->error) ){
-					$this->error = "Unknown/unsupported feed type";
+			$root = $root->item(0);
+
+			if ($root) {
+				switch (mb_strtolower($root->tagName)) {
+				case "rdf:rdf":
+					$this->type = $this::FEED_RDF;
+					break;
+				case "channel":
+					$this->type = $this::FEED_RSS;
+					break;
+				case "feed":
+					$this->type = $this::FEED_ATOM;
+					break;
+				default:
+					if( !isset($this->error) ){
+						$this->error = "Unknown/unsupported feed type";
+					}
+					return;
 				}
-				return;
 			}
 
 			switch ($this->type) {

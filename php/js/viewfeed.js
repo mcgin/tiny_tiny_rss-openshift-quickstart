@@ -835,6 +835,8 @@ function selectionToggleUnread(set_state, callback, no_error, ids) {
 			}
 		}
 
+		updateFloatingTitle(true);
+
 		if (rows.length > 0) {
 
 			var cmode = "";
@@ -1274,14 +1276,16 @@ function headlines_scroll_handler(e) {
 
 		// set topmost child in the buffer as active
 		if (getInitParam("cdm_auto_catchup") == 1 &&
+				getSelectedArticleIds2().length <= 1 &&
 				(!isCdmMode() || getInitParam("cdm_expanded"))) {
 			var rows = $$("#headlines-frame > div[id*=RROW]");
 
 			for (var i = 0; i < rows.length; i++) {
 				var child = rows[i];
 
-				if ($("headlines-frame").scrollTop < child.offsetTop &&
-					child.offsetTop - $("headlines-frame").scrollTop < 100) {
+				if ($("headlines-frame").scrollTop <= child.offsetTop &&
+					child.offsetTop - $("headlines-frame").scrollTop < 100 &&
+					child.id.replace("RROW-", "") != _active_article_id) {
 
 					if (_active_article_id) {
 						var row = $("RROW-" + _active_article_id);
@@ -1313,7 +1317,7 @@ function headlines_scroll_handler(e) {
 			if (hsp) hsp.innerHTML = "";
 		}
 
-		if (getInitParam("cdm_expanded") && isCdmMode()) {
+		if (isCdmMode()) {
 			updateFloatingTitle();
 		}
 
@@ -1378,6 +1382,8 @@ function catchupBatchedArticles() {
 						if (elem) elem.removeClassName("Unread");
 						catchup_id_batch.remove(id);
 					});
+
+					updateFloatingTitle(true);
 
 				} });
 		}
@@ -1487,6 +1493,12 @@ function cdmCollapseArticle(event, id, unmark) {
 			if (event) Event.stop(event);
 
 			PluginHost.run(PluginHost.HOOK_ARTICLE_COLLAPSED, id);
+
+			if (row.offsetTop < $("headlines-frame").scrollTop)
+				scrollToRowId(row.id);
+
+			Element.hide("floatingTitle");
+			$("floatingTitle").setAttribute("rowid", false);
 		}
 
 	} catch (e) {
@@ -1591,9 +1603,9 @@ function show_labels_in_headlines(transport) {
 
 		if (data) {
 			data['info-for-headlines'].each(function(elem) {
-				var ctr = $("HLLCTR-" + elem.id);
-
-				if (ctr) ctr.innerHTML = elem.labels;
+				$$(".HLLCTR-" + elem.id).each(function(ctr) {
+					ctr.innerHTML = elem.labels;
+				});
 			});
 		}
 	} catch (e) {
@@ -1610,6 +1622,12 @@ function dismissArticle(id) {
 		toggleUnread(id, 0, true);
 
 		new Effect.Fade(elem, {duration : 0.5});
+
+		// Remove the content, too
+		var elem_content = $("CICD-" + id);
+		if (elem_content) {
+			Element.remove(elem_content);
+		}
 
 		if (id == getActiveArticleId()) {
 			setActiveArticleId(0);
@@ -1634,6 +1652,12 @@ function dismissSelectedArticles() {
 					ids[i] != getActiveArticleId()) {
 				new Effect.Fade(elem, {duration : 0.5});
 				sel.push(ids[i]);
+
+				// Remove the content, too
+				var elem_content = $("CICD-" + ids[i]);
+				if (elem_content) {
+					Element.remove(elem_content);
+				}
 			} else {
 				tmp.push(ids[i]);
 			}
@@ -1661,13 +1685,19 @@ function dismissReadArticles() {
 					!elem.hasClassName("Selected")) {
 
 				new Effect.Fade(elem, {duration : 0.5});
+
+				// Remove the content, too
+				var elem_content = $("CICD-" + ids[i]);
+				if (elem_content) {
+					Element.remove(elem_content);
+				}
 			} else {
 				tmp.push(ids[i]);
 			}
 		}
 
 	} catch (e) {
-		exception_error("dismissSelectedArticles", e);
+		exception_error("dismissReadArticles", e);
 	}
 }
 
@@ -1716,6 +1746,7 @@ function cdmClicked(event, id) {
 
 				if (article_is_unread) {
 					decrementFeedCounter(getActiveFeedId(), activeFeedIsCat());
+					updateFloatingTitle(true);
 				}
 
 				var query = "?op=rpc&method=catchupSelected" +
@@ -1890,6 +1921,153 @@ function closeArticlePanel() {
 			dijit.byId("content-insert"));
 }
 
+function initFloatingMenu() {
+	try {
+		if (dijit.byId("floatingMenu"))
+			dijit.byId("floatingMenu").destroyRecursive();
+
+			var menu = new dijit.Menu({
+				id: "floatingMenu",
+				targetNodeIds: ["floatingTitle"]
+			});
+
+			var id = $("floatingTitle").getAttribute("rowid").replace("RROW-", "");
+
+			headlinesMenuCommon(menu, id);
+
+			menu.startup();
+	} catch (e) {
+		exception_error("initFloatingMenu", e);
+	}
+}
+
+function headlinesMenuCommon(menu, base_id) {
+	try {
+
+		menu.addChild(new dijit.MenuItem({
+			label: __("Open original article"),
+			onClick: function(event) {
+				openArticleInNewWindow(base_id ? base_id : this.getParent().callerRowId);
+			}}));
+
+		menu.addChild(new dijit.MenuItem({
+			label: __("Display article URL"),
+			onClick: function(event) {
+				displayArticleUrl(base_id ? base_id : this.getParent().callerRowId);
+			}}));
+
+		menu.addChild(new dijit.MenuSeparator());
+
+		menu.addChild(new dijit.MenuItem({
+			label: __("Toggle unread"),
+			onClick: function(event) {
+				var ids = getSelectedArticleIds2();
+				// cast to string
+				var id = (base_id ? base_id : this.getParent().callerRowId) + "";
+				ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
+
+				selectionToggleUnread(undefined, false, true, ids);
+				}}));
+
+		menu.addChild(new dijit.MenuItem({
+			label: __("Toggle starred"),
+			onClick: function(event) {
+				var ids = getSelectedArticleIds2();
+				// cast to string
+				var id = (base_id ? base_id : this.getParent().callerRowId) + "";
+				ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
+
+				selectionToggleMarked(undefined, false, true, ids);
+				}}));
+
+		menu.addChild(new dijit.MenuItem({
+			label: __("Toggle published"),
+			onClick: function(event) {
+				var ids = getSelectedArticleIds2();
+				// cast to string
+				var id = (base_id ? base_id : this.getParent().callerRowId) + "";
+				ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
+
+				selectionTogglePublished(undefined, false, true, ids);
+				}}));
+
+		menu.addChild(new dijit.MenuSeparator());
+
+		menu.addChild(new dijit.MenuItem({
+			label: __("Mark above as read"),
+			onClick: function(event) {
+				catchupRelativeToArticle(0, base_id ? base_id : this.getParent().callerRowId);
+				}}));
+
+		menu.addChild(new dijit.MenuItem({
+			label: __("Mark below as read"),
+			onClick: function(event) {
+				catchupRelativeToArticle(1, base_id ? base_id : this.getParent().callerRowId);
+				}}));
+
+
+		var labels = dijit.byId("feedTree").model.getItemsInCategory(-2);
+
+		if (labels) {
+
+			menu.addChild(new dijit.MenuSeparator());
+
+			var labelAddMenu = new dijit.Menu({ownerMenu: menu});
+			var labelDelMenu = new dijit.Menu({ownerMenu: menu});
+
+			labels.each(function(label) {
+				var id = label.id[0];
+				var bare_id = id.substr(id.indexOf(":")+1);
+				var name = label.name[0];
+
+				bare_id = feed_to_label_id(bare_id);
+
+				labelAddMenu.addChild(new dijit.MenuItem({
+					label: name,
+					labelId: bare_id,
+					onClick: function(event) {
+						var ids = getSelectedArticleIds2();
+						// cast to string
+						var id = (base_id ? base_id : this.getParent().ownerMenu.callerRowId) + "";
+
+						ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
+
+						selectionAssignLabel(this.labelId, ids);
+				}}));
+
+				labelDelMenu.addChild(new dijit.MenuItem({
+					label: name,
+					labelId: bare_id,
+					onClick: function(event) {
+						var ids = getSelectedArticleIds2();
+						// cast to string
+						var id = (base_id ? base_id : this.getParent().ownerMenu.callerRowId) + "";
+
+						ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
+
+						selectionRemoveLabel(this.labelId, ids);
+				}}));
+
+			});
+
+			menu.addChild(new dijit.PopupMenuItem({
+				label: __("Assign label"),
+				popup: labelAddMenu,
+			}));
+
+			menu.addChild(new dijit.PopupMenuItem({
+				label: __("Remove label"),
+				popup: labelDelMenu,
+			}));
+
+		}
+
+
+	} catch (e) {
+		exception_error("headlinesMenuCommon", e);
+	}
+}
+
 function initHeadlinesMenu() {
 	try {
 		if (dijit.byId("headlinesMenu"))
@@ -1925,130 +2103,7 @@ function initHeadlinesMenu() {
 
 		});
 
-/*		if (!isCdmMode())
-			menu.addChild(new dijit.MenuItem({
-				label: __("View article"),
-				onClick: function(event) {
-					view(this.getParent().callerRowId);
-				}})); */
-
-		menu.addChild(new dijit.MenuItem({
-			label: __("Open original article"),
-			onClick: function(event) {
-				openArticleInNewWindow(this.getParent().callerRowId);
-			}}));
-
-		menu.addChild(new dijit.MenuItem({
-			label: __("Display article URL"),
-			onClick: function(event) {
-				displayArticleUrl(this.getParent().callerRowId);
-			}}));
-
-		menu.addChild(new dijit.MenuSeparator());
-
-		menu.addChild(new dijit.MenuItem({
-			label: __("Toggle unread"),
-			onClick: function(event) {
-				var ids = getSelectedArticleIds2();
-				// cast to string
-				var id = this.getParent().callerRowId + "";
-				ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
-
-				selectionToggleUnread(undefined, false, true, ids);
-				}}));
-
-		menu.addChild(new dijit.MenuItem({
-			label: __("Toggle starred"),
-			onClick: function(event) {
-				var ids = getSelectedArticleIds2();
-				// cast to string
-				var id = this.getParent().callerRowId + "";
-				ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
-
-				selectionToggleMarked(undefined, false, true, ids);
-				}}));
-
-		menu.addChild(new dijit.MenuItem({
-			label: __("Toggle published"),
-			onClick: function(event) {
-				var ids = getSelectedArticleIds2();
-				// cast to string
-				var id = this.getParent().callerRowId + "";
-				ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
-
-				selectionTogglePublished(undefined, false, true, ids);
-				}}));
-
-		menu.addChild(new dijit.MenuSeparator());
-
-		menu.addChild(new dijit.MenuItem({
-			label: __("Mark above as read"),
-			onClick: function(event) {
-				catchupRelativeToArticle(0, this.getParent().callerRowId);
-				}}));
-
-		menu.addChild(new dijit.MenuItem({
-			label: __("Mark below as read"),
-			onClick: function(event) {
-				catchupRelativeToArticle(1, this.getParent().callerRowId);
-				}}));
-
-
-		var labels = dijit.byId("feedTree").model.getItemsInCategory(-2);
-
-		if (labels) {
-
-			menu.addChild(new dijit.MenuSeparator());
-
-			var labelAddMenu = new dijit.Menu({ownerMenu: menu});
-			var labelDelMenu = new dijit.Menu({ownerMenu: menu});
-
-			labels.each(function(label) {
-				var id = label.id[0];
-				var bare_id = id.substr(id.indexOf(":")+1);
-				var name = label.name[0];
-
-				bare_id = feed_to_label_id(bare_id);
-
-				labelAddMenu.addChild(new dijit.MenuItem({
-					label: name,
-					labelId: bare_id,
-					onClick: function(event) {
-						var ids = getSelectedArticleIds2();
-						// cast to string
-						var id = this.getParent().ownerMenu.callerRowId + "";
-
-						ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
-
-						selectionAssignLabel(this.labelId, ids);
-				}}));
-
-				labelDelMenu.addChild(new dijit.MenuItem({
-					label: name,
-					labelId: bare_id,
-					onClick: function(event) {
-						var ids = getSelectedArticleIds2();
-						// cast to string
-						var id = this.getParent().ownerMenu.callerRowId + "";
-
-						ids = ids.size() != 0 && ids.indexOf(id) != -1 ? ids : [id];
-
-						selectionRemoveLabel(this.labelId, ids);
-				}}));
-
-			});
-
-			menu.addChild(new dijit.PopupMenuItem({
-				label: __("Assign label"),
-				popup: labelAddMenu,
-			}));
-
-			menu.addChild(new dijit.PopupMenuItem({
-				label: __("Remove label"),
-				popup: labelDelMenu,
-			}));
-
-		}
+		headlinesMenuCommon(menu, false);
 
 		menu.startup();
 
@@ -2195,33 +2250,67 @@ function openSelectedAttachment(elem) {
 	}
 }
 
-function updateFloatingTitle() {
+function scrollToRowId(id) {
 	try {
+		var row = $(id);
+
+		if (row)
+			$("headlines-frame").scrollTop = row.offsetTop;
+
+	} catch (e) {
+		exception_error("scrollToRowId", e);
+	}
+}
+
+function updateFloatingTitle(unread_only) {
+	try {
+		if (!isCdmMode()) return;
+
 		var hf = $("headlines-frame");
 
 		var elems = $$("#headlines-frame > div[id*=RROW]");
 
 		for (var i = 0; i < elems.length; i++) {
+
 			var child = elems[i];
 
-			if (child.offsetTop + child.offsetHeight > hf.scrollTop) {
+			if (child && child.offsetTop + child.offsetHeight > hf.scrollTop) {
 
 				var header = child.getElementsByClassName("cdmHeader")[0];
 
-				if (child.id != $("floatingTitle").getAttribute("rowid")) {
-					$("floatingTitle").setAttribute("rowid", child.id);
-					$("floatingTitle").innerHTML = header.innerHTML;
+				if (unread_only || child.id != $("floatingTitle").getAttribute("rowid")) {
+					if (child.id != $("floatingTitle").getAttribute("rowid")) {
+						$("floatingTitle").setAttribute("rowid", child.id);
+						$("floatingTitle").innerHTML = header.innerHTML;
+						$("floatingTitle").firstChild.innerHTML = "<img class='anchor markedPic' src='images/page_white_go.png' onclick=\"scrollToRowId('"+child.id+"')\">" + $("floatingTitle").firstChild.innerHTML;
+
+						initFloatingMenu();
+
+						var cb = $$("#floatingTitle .dijitCheckBox")[0];
+
+						if (cb)
+							cb.parentNode.removeChild(cb);
+					}
+
+					if (child.hasClassName("Unread"))
+						$("floatingTitle").addClassName("Unread");
+					else
+						$("floatingTitle").removeClassName("Unread");
+
+					PluginHost.run(PluginHost.HOOK_FLOATING_TITLE, child);
 				}
 
-				if (child.offsetTop < hf.scrollTop - header.offsetHeight - 100 &&
-						child.offsetTop + child.offsetHeight - hf.scrollTop > 100)
+				if (child.offsetTop < hf.scrollTop - header.offsetHeight &&
+						child.offsetTop + child.offsetHeight - hf.scrollTop > header.offsetHeight)
 					Element.show("floatingTitle");
 				else
 					Element.hide("floatingTitle");
 
-				break;
+				return;
+
 			}
 		}
+
 	} catch (e) {
 		exception_error("updateFloatingTitle", e);
 	}

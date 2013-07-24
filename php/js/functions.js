@@ -226,13 +226,13 @@ function notify_real(msg, no_hide, n_type) {
 		no_hide = true;
 	} else if (n_type == 3) {
 		n.className = "notify error";
-		msg = "<span><img src='images/sign_excl.svg'></span>" + msg;
+		msg = "<span><img src='images/alert.png'></span>" + msg;
 	} else if (n_type == 4) {
 		n.className = "notify info";
-		msg = "<span><img src='images/sign_info.svg'></span>" + msg;
+		msg = "<span><img src='images/information.png'></span>" + msg;
 	}
 
-	msg += " <span><img src=\"images/close_notify.svg\" class=\"close\" title=\"" +
+	msg += " <span><img src=\"images/cross.png\" class=\"close\" title=\"" +
 		__("Click to close") + "\" onclick=\"notify('')\"></span>";
 
 //	msg = "<img src='images/live_com_loading.gif'> " + msg;

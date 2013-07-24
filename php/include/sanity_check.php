@@ -95,7 +95,7 @@
 				}
 			}
 
-			if (SELF_URL_PATH == "http://yourserver/tt-rss/") {
+			if (SELF_URL_PATH == "http://example.org/tt-rss/") {
 				$urlpath = preg_replace("/\w+\.php$/", "", make_self_url_path());
 
 				array_push($errors,
@@ -148,6 +148,11 @@
 
 			if ((PUBSUBHUBBUB_HUB || PUBSUBHUBBUB_ENABLED) && !function_exists("curl_init")) {
 				array_push($errors, "PHP support for CURL is required for PubSubHubbub.");
+			}
+
+			if (SPHINX_ENABLED && class_exists("SphinxClient")) {
+				array_push($errors, "Your PHP has a separate systemwide Sphinx client installed which conflicts with the client library used by tt-rss. Either remove the system library or disable Sphinx support.");
+
 			}
 
 			if (!class_exists("DOMDocument")) {

@@ -157,7 +157,7 @@
 
 		<button dojoType="dijit.form.Button" id="collapse_feeds_btn"
 			onclick="collapse_feedlist()"
-			title="<?php echo __('Collapse feedlist') ?>" style="display : inline">
+			title="<?php echo __('Collapse feedlist') ?>" style="display : none">
 			&lt;&lt;</button>
 
 		<select name="view_mode" title="<?php echo __('Show articles') ?>"
@@ -210,7 +210,7 @@
 			<button id="net-alert" dojoType="dijit.form.Button" style="display : none" disabled="true"
 				title="<?php echo __("Communication problem with server.") ?>">
 			<img
-				src="images/alert.png" />
+				src="images/error.png" />
 			</button>
 
 			<button id="newVersionIcon" dojoType="dijit.form.Button" style="display : none">

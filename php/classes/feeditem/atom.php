@@ -1,5 +1,6 @@
 <?php
 class FeedItem_Atom extends FeedItem_Common {
+
 	function get_id() {
 		$id = $this->elem->getElementsByTagName("id")->item(0);
 
@@ -30,6 +31,7 @@ class FeedItem_Atom extends FeedItem_Common {
 		}
 	}
 
+
 	function get_link() {
 		$links = $this->elem->getElementsByTagName("link");
 
@@ -38,8 +40,9 @@ class FeedItem_Atom extends FeedItem_Common {
 				(!$link->hasAttribute("rel")
 					|| $link->getAttribute("rel") == "alternate"
 					|| $link->getAttribute("rel") == "standout")) {
+				$base = $this->xpath->evaluate("string(ancestor-or-self::*[@xml:base][1]/@xml:base)", $link);
 
-				return $link->getAttribute("href");
+				return rewrite_relative_url($base, $link->getAttribute("href"));
 			}
 		}
 	}
@@ -58,7 +61,13 @@ class FeedItem_Atom extends FeedItem_Common {
 		if ($content) {
 			if ($content->hasAttribute('type')) {
 				if ($content->getAttribute('type') == 'xhtml') {
-					return $this->doc->saveXML($content->firstChild->nextSibling);
+					for ($i = 0; $i < $content->childNodes->length; $i++) {
+						$child = $content->childNodes->item($i);
+
+						if ($child->hasChildNodes()) {
+							return $this->doc->saveXML($child);
+						}
+					}
 				}
 			}
 
@@ -72,7 +81,13 @@ class FeedItem_Atom extends FeedItem_Common {
 		if ($content) {
 			if ($content->hasAttribute('type')) {
 				if ($content->getAttribute('type') == 'xhtml') {
-					return $this->doc->saveXML($content->firstChild->nextSibling);
+					for ($i = 0; $i < $content->childNodes->length; $i++) {
+						$child = $content->childNodes->item($i);
+
+						if ($child->hasChildNodes()) {
+							return $this->doc->saveXML($child);
+						}
+					}
 				}
 			}
 

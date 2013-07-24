@@ -97,12 +97,16 @@ class Pref_Filters extends Handler_Protected {
 		print "<table width=\"100%\" cellspacing=\"0\" id=\"prefErrorFeedList\">";
 
 		while ($line = $this->dbh->fetch_assoc($result)) {
+			$line["content_preview"] = truncate_string(strip_tags($line["content_preview"]), 100, '...');
+
+			foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_QUERY_HEADLINES) as $p) {
+					$line = $p->hook_query_headlines($line, 100);
+				}
 
 			$entry_timestamp = strtotime($line["updated"]);
 			$entry_tags = get_article_tags($line["id"], $_SESSION["uid"]);
 
-			$content_preview = truncate_string(
-				strip_tags($line["content_preview"]), 100, '...');
+			$content_preview = $line["content_preview"];
 
 			if ($line["feed_title"])
 				$feed_title = $line["feed_title"];
@@ -585,14 +589,15 @@ class Pref_Filters extends Handler_Protected {
 		$enabled = checkbox_to_sql_bool($_REQUEST["enabled"]);
 		$match_any_rule = checkbox_to_sql_bool($_REQUEST["match_any_rule"]);
 		$title = $this->dbh->escape_string($_REQUEST["title"]);
+		$inverse = checkbox_to_sql_bool($_REQUEST["inverse"]);
 
 		$this->dbh->query("BEGIN");
 
 		/* create base filter */
 
 		$result = $this->dbh->query("INSERT INTO ttrss_filters2
-			(owner_uid, match_any_rule, enabled, title) VALUES
-			(".$_SESSION["uid"].",$match_any_rule,$enabled, '$title')");
+			(owner_uid, match_any_rule, enabled, title, inverse) VALUES
+			(".$_SESSION["uid"].",$match_any_rule,$enabled, '$title', $inverse)");
 
 		$result = $this->dbh->query("SELECT MAX(id) AS id FROM ttrss_filters2
 			WHERE owner_uid = ".$_SESSION["uid"]);

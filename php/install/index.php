@@ -80,13 +80,13 @@
 	}
 
 	function print_error($msg) {
-		print "<div class='error'><span><img src='../images/sign_excl.svg'></span>
+		print "<div class='error'><span><img src='../images/alert.png'></span>
 			<span>$msg</span></div>";
 	}
 
 	function print_notice($msg) {
 		print "<div class=\"notice\">
-			<span><img src=\"../images/sign_info.svg\"></span><span>$msg</span></div>";
+			<span><img src=\"../images/information.png\"></span><span>$msg</span></div>";
 	}
 
 	function db_connect($host, $user, $pass, $db, $type, $port = false) {
@@ -199,7 +199,7 @@
 	}
 
 	function make_self_url_path() {
-		$url_path = ($_SERVER['HTTPS'] != "on" ? 'http://' :  'https://') . $_SERVER["HTTP_HOST"] . parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
+		$url_path = ((!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] != "on") ? 'http://' :  'https://') . $_SERVER["HTTP_HOST"] . parse_url($_SERVER["REQUEST_URI"], PHP_URL_PATH);
 
 		return $url_path;
 	}
