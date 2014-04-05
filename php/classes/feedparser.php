@@ -2,6 +2,7 @@
 class FeedParser {
 	private $doc;
 	private $error;
+	private $libxml_errors = array();
 	private $items;
 	private $link;
 	private $title;
@@ -12,45 +13,75 @@ class FeedParser {
 	const FEED_RSS = 1;
 	const FEED_ATOM = 2;
 
+	function normalize_encoding($data) {
+		if (preg_match('/^(<\?xml[\t\n\r ].*?encoding[\t\n\r ]*=[\t\n\r ]*["\'])(.+?)(["\'].*?\?>)/s', $data, $matches) === 1) {
+			$data = mb_convert_encoding($data, 'UTF-8', $matches[2]);
+
+			$data = preg_replace('/^<\?xml[\t\n\r ].*?\?>/s', $matches[1] . "UTF-8" . $matches[3] , $data);
+		}
+
+		return $data;
+	}
+
 	function __construct($data) {
 		libxml_use_internal_errors(true);
 		libxml_clear_errors();
 		$this->doc = new DOMDocument();
 		$this->doc->loadXML($data);
 
+		mb_substitute_character("none");
+
 		$error = libxml_get_last_error();
 
 		// libxml compiled without iconv?
 		if ($error && $error->code == 32) {
-			if (preg_match('/^(<\?xml[\t\n\r ].*?encoding=["\'])(.+?)(["\'].*?\?>)/s', $data, $matches) === 1) {
+			$data = $this->normalize_encoding($data);
+
+			if ($data) {
 				libxml_clear_errors();
-
-				$enc = $matches[2];
-
-				$data = iconv($enc, 'UTF-8//IGNORE', $data);
-				$data = preg_replace('/^<\?xml[\t\n\r ].*?\?>/s', $matches[1] . "UTF-8" . $matches[3] , $data);
 
 				$this->doc = new DOMDocument();
 				$this->doc->loadXML($data);
 
 				$error = libxml_get_last_error();
-		   }
+			}
 		}
 
 		// some terrible invalid unicode entity?
-		if ($error && $error->code == 9) {
-			libxml_clear_errors();
+		if ($error) {
+			foreach (libxml_get_errors() as $err) {
+				if ($err->code == 9) {
+					// if the source feed is not in utf8, next conversion will fail
+					$data = $this->normalize_encoding($data);
 
-			// we might want to try guessing input encoding here too
-			$data = iconv("UTF-8", "UTF-8//IGNORE", $data);
+					// remove dangling bytes
+					$data = mb_convert_encoding($data, 'UTF-8', 'UTF-8');
 
-			$this->doc = new DOMDocument();
-			$this->doc->loadXML($data);
+					// apparently not all UTF-8 characters are valid for XML
+					$data = preg_replace('/[^\x{0009}\x{000a}\x{000d}\x{0020}-\x{D7FF}\x{E000}-\x{FFFD}]+/u', ' ', $data);
 
-			$error = libxml_get_last_error();
+					if ($data) {
+						libxml_clear_errors();
+
+						$this->doc = new DOMDocument();
+						$this->doc->loadXML($data);
+
+						$error = libxml_get_last_error();
+					}
+					break;
+				}
+			}
 		}
 
-		$this->error = $this->format_error($error);
+		if ($error) {
+			foreach (libxml_get_errors() as $error) {
+				if ($error->level == LIBXML_ERR_FATAL) {
+					if(!isset($this->error)) //currently only the first error is reported
+						$this->error = $this->format_error($error);
+					$this->libxml_errors [] = $this->format_error($error);
+				}
+			}
+		}
 		libxml_clear_errors();
 
 		$this->items = array();
@@ -66,12 +97,13 @@ class FeedParser {
 		$xpath->registerNamespace('slash', 'http://purl.org/rss/1.0/modules/slash/');
 		$xpath->registerNamespace('dc', 'http://purl.org/dc/elements/1.1/');
 		$xpath->registerNamespace('content', 'http://purl.org/rss/1.0/modules/content/');
+		$xpath->registerNamespace('thread', 'http://purl.org/syndication/thread/1.0');
 
 		$this->xpath = $xpath;
 
 		$root = $xpath->query("(//atom03:feed|//atom:feed|//channel|//rdf:rdf|//rdf:RDF)");
 
-		if ($root) {
+		if ($root && $root->length > 0) {
 			$root = $root->item(0);
 
 			if ($root) {
@@ -173,6 +205,10 @@ class FeedParser {
 				break;
 
 			}
+
+			if ($this->title) $this->title = trim($this->title);
+			if ($this->link) $this->link = trim($this->link);
+
 		} else {
 			if( !isset($this->error) ){
 				$this->error = "Unknown/unsupported feed type";
@@ -193,6 +229,10 @@ class FeedParser {
 
 	function error() {
 		return $this->error;
+	}
+
+	function errors() {
+		return $this->libxml_errors;
 	}
 
 	function get_link() {
@@ -216,7 +256,7 @@ class FeedParser {
 
 			foreach ($links as $link) {
 				if (!$rel || $link->hasAttribute('rel') && $link->getAttribute('rel') == $rel) {
-					array_push($rv, $link->getAttribute('href'));
+					array_push($rv, trim($link->getAttribute('href')));
 				}
 			}
 			break;
@@ -225,7 +265,7 @@ class FeedParser {
 
 			foreach ($links as $link) {
 				if (!$rel || $link->hasAttribute('rel') && $link->getAttribute('rel') == $rel) {
-					array_push($rv, $link->getAttribute('href'));
+					array_push($rv, trim($link->getAttribute('href')));
 				}
 			}
 			break;

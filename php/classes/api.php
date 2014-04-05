@@ -2,7 +2,7 @@
 
 class API extends Handler {
 
-	const API_LEVEL  = 7;
+	const API_LEVEL  = 8;
 
 	const STATUS_OK  = 0;
 	const STATUS_ERR = 1;
@@ -77,6 +77,7 @@ class API extends Handler {
 				$this->wrap(self::STATUS_OK,	array("session_id" => session_id(),
 					"api_level" => self::API_LEVEL));
 			} else {                                                         // else we are not logged in
+				user_error("Failed login attempt for $login from {$_SERVER['REMOTE_ADDR']}", E_USER_WARNING);
 				$this->wrap(self::STATUS_ERR, array("error" => "LOGIN_ERROR"));
 			}
 		} else {
@@ -202,6 +203,9 @@ class API extends Handler {
 
 			$override_order = false;
 			switch ($_REQUEST["order_by"]) {
+				case "title":
+					$override_order = "ttrss_entries.title";
+					break;
 				case "date_reverse":
 					$override_order = "score DESC, date_entered, updated";
 					break;
@@ -310,7 +314,7 @@ class API extends Handler {
 		if ($article_id) {
 
 			$query = "SELECT id,title,link,content,feed_id,comments,int_id,
-				marked,unread,published,score,
+				marked,unread,published,score,note,lang,
 				".SUBSTRING_FOR_DATE."(updated,1,16) as updated,
 				author,(SELECT title FROM ttrss_feeds WHERE id = feed_id) AS feed_title
 				FROM ttrss_entries,ttrss_user_entries
@@ -342,7 +346,9 @@ class API extends Handler {
 						"feed_id" => $line["feed_id"],
 						"attachments" => $attachments,
 						"score" => (int)$line["score"],
-						"feed_title" => $line["feed_title"]
+						"feed_title" => $line["feed_title"],
+						"note" => $line["note"],
+						"lang" => $line["lang"]
 					);
 
 					foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_RENDER_ARTICLE_API) as $p) {
@@ -423,14 +429,14 @@ class API extends Handler {
 
 			$checked = false;
 			foreach ($article_labels as $al) {
-				if ($al[0] == $line['id']) {
+				if (feed_to_label_id($al[0]) == $line['id']) {
 					$checked = true;
 					break;
 				}
 			}
 
 			array_push($rv, array(
-				"id" => (int)$line['id'],
+				"id" => (int)label_to_feed_id($line['id']),
 				"caption" => $line['caption'],
 				"fg_color" => $line['fg_color'],
 				"bg_color" => $line['bg_color'],
@@ -447,7 +453,7 @@ class API extends Handler {
 		$assign = (bool) $this->dbh->escape_string($_REQUEST['assign']) == "true";
 
 		$label = $this->dbh->escape_string(label_find_caption(
-			$label_id, $_SESSION["uid"]));
+			feed_to_label_id($label_id), $_SESSION["uid"]));
 
 		$num_updated = 0;
 
@@ -511,7 +517,7 @@ class API extends Handler {
 					if ($unread || !$unread_only) {
 
 						$row = array(
-								"id" => $cv["id"],
+								"id" => (int) $cv["id"],
 								"title" => $cv["description"],
 								"unread" => $cv["counter"],
 								"cat_id" => -2,
@@ -557,7 +563,7 @@ class API extends Handler {
 
 					if ($unread || !$unread_only) {
 						$row = array(
-								"id" => $line["id"],
+								"id" => (int) $line["id"],
 								"title" => $line["title"],
 								"unread" => $unread,
 								"is_cat" => true,
@@ -638,7 +644,7 @@ class API extends Handler {
 			$headlines = array();
 
 			while ($line = db_fetch_assoc($result)) {
-				$line["content_preview"] = truncate_string(strip_tags($line["content_preview"]), 100);
+				$line["content_preview"] = truncate_string(strip_tags($line["content"]), 100);
 				foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_QUERY_HEADLINES) as $p) {
 					$line = $p->hook_query_headlines($line, 100, true);
 				}
@@ -669,7 +675,7 @@ class API extends Handler {
 					$headline_row['attachments'] = get_article_enclosures(
 						$line['id']);
 
-				if (!$show_excerpt)
+				if ($show_excerpt)
 					$headline_row["excerpt"] = $line["content_preview"];
 
 				if ($show_content) {
@@ -678,7 +684,7 @@ class API extends Handler {
 						$headline_row["content"] = sanitize(
 							$line["content"],
 							sql_bool_to_bool($line['hide_images']),
-							false, $line["site_url"]);
+							false, $line["site_url"], false, $line["id"]);
 					} else {
 						$headline_row["content"] = $line["content"];
 					}
@@ -700,6 +706,8 @@ class API extends Handler {
 				$headline_row["author"] = $line["author"];
 
 				$headline_row["score"] = (int)$line["score"];
+				$headline_row["note"] = $line["note"];
+				$headline_row["lang"] = $line["lang"];
 
 				foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_RENDER_ARTICLE_API) as $p) {
 					$headline_row = $p->hook_render_article_api(array("headline" => $headline_row));
