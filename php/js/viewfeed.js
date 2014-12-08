@@ -108,6 +108,10 @@ function headlines_callback2(transport, offset, background, infscroll_req) {
 
 				initHeadlinesMenu();
 
+				if (_infscroll_disable)
+					hsp.innerHTML = "<a href='#' onclick='openNextUnreadFeed()'>" +
+						__("Click to open next unread feed.") + "</a>";
+
 				if (_search_query) {
 					$("feed_title").innerHTML += "<span id='cancel_search'>" +
 						" (<a href='#' onclick='cancelSearch()'>" + __("Cancel search") + "</a>)" +
@@ -147,9 +151,9 @@ function headlines_callback2(transport, offset, background, infscroll_req) {
 
 					if (!hsp) hsp = new Element("DIV", {"id": "headlines-spacer"});
 
-					if (getInitParam("cdm_auto_catchup") == 1) {
+//					if (getInitParam("cdm_auto_catchup") == 1) {
 						c.domNode.appendChild(hsp);
-					}
+//					}
 
 					console.log("added " + new_elems.size() + " headlines");
 
@@ -176,7 +180,8 @@ function headlines_callback2(transport, offset, background, infscroll_req) {
 
 					var hsp = $("headlines-spacer");
 
-					if (hsp) hsp.innerHTML = "";
+					if (hsp) hsp.innerHTML = "<a href='#' onclick='openNextUnreadFeed()'>" +
+						__("Click to open next unread feed.") + "</a>";
 				}
 			}
 
@@ -1307,15 +1312,20 @@ function headlines_scroll_handler(e) {
 					 	((e.scrollTop + e.offsetHeight) / e.scrollHeight >= 0.7))) {
 
 				if (hsp)
-					hsp.innerHTML = "<img src='images/indicator_tiny.gif'> " +
-						__("Loading, please wait...");
+					hsp.innerHTML = "<span class='loading'><img src='images/indicator_tiny.gif'> " +
+						__("Loading, please wait...") + "</span>";
 
 				loadMoreHeadlines();
 				return;
 
 			}
 		} else {
-			if (hsp) hsp.innerHTML = "";
+			if (hsp)
+				if (_infscroll_disable)
+					hsp.innerHTML = "<a href='#' onclick='openNextUnreadFeed()'>" +
+						__("Click to open next unread feed.") + "</a>";
+				else
+					hsp.innerHTML = "";
 		}
 
 		if (isCdmMode()) {
@@ -1351,10 +1361,34 @@ function headlines_scroll_handler(e) {
 						500);
 				}
 			}
+
+			if (_infscroll_disable) {
+				var child = $$("#headlines-frame div[id*=RROW]").last();
+
+				if (child && $("headlines-frame").scrollTop >
+						(child.offsetTop + child.offsetHeight - 50)) {
+
+					console.log("we seem to be at an end");
+
+					if (getInitParam("on_catchup_show_next_feed") == "1") {
+						openNextUnreadFeed();
+					}
+				}
+			}
 		}
 
 	} catch (e) {
 		console.warn("headlines_scroll_handler: " + e);
+	}
+}
+
+function openNextUnreadFeed() {
+	try {
+		var is_cat = activeFeedIsCat();
+		var nuf = getNextUnreadFeed(getActiveFeedId(), is_cat);
+		if (nuf) viewfeed(nuf, '', is_cat);
+	} catch (e) {
+		exception_error("openNextUnreadFeed", e);
 	}
 }
 
@@ -1762,7 +1796,8 @@ function cdmClicked(event, id) {
 				return !event.shiftKey;
 			}
 
-		} else {
+		} else if (event.target.parents(".cdmHeader").length > 0) {
+
 			toggleSelected(id, true);
 
 			var elem = $("RROW-" + id);

@@ -16,9 +16,6 @@ class Af_Fsckportal extends Plugin {
 	}
 
 	function hook_article_filter($article) {
-		$owner_uid = $article["owner_uid"];
-
-		if (strpos($article["plugin_data"], "fsckportal,$owner_uid:") === FALSE) {
 
 			$doc = new DOMDocument();
 
@@ -32,8 +29,6 @@ class Af_Fsckportal extends Plugin {
 				$xpath = new DOMXPath($doc);
 				$entries = $xpath->query('(//img[@src]|//a[@href])');
 
-				$matches = array();
-
 				foreach ($entries as $entry) {
 					if (preg_match("/feedsportal.com/", $entry->getAttribute("src"))) {
 						$entry->parentNode->removeChild($entry);
@@ -42,12 +37,8 @@ class Af_Fsckportal extends Plugin {
 					}
 				}
 
-				$article["content"] = $doc->saveXML($basenode);
-				$article["plugin_data"] = "fsckportal,$owner_uid:" . $article["plugin_data"];
+				$article["content"] = $doc->saveXML();
 
-			}
-		} else if (isset($article["stored"]["content"])) {
-			$article["content"] = $article["stored"]["content"];
 		}
 
 		return $article;

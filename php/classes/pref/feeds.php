@@ -55,6 +55,7 @@ class Pref_Feeds extends Handler_Protected {
 			$cat['unread'] = 0;
 			$cat['child_unread'] = 0;
 			$cat['auxcounter'] = 0;
+			$cat['parent_id'] = $cat_id;
 
 			$cat['items'] = $this->get_category_items($line['id']);
 
@@ -494,7 +495,7 @@ class Pref_Feeds extends Handler_Protected {
 		$feed_id = $this->dbh->escape_string($_REQUEST["feed_id"]);
 
 		if (is_file($icon_file) && $feed_id) {
-			if (filesize($icon_file) < 20000) {
+			if (filesize($icon_file) < 65535) {
 
 				$result = $this->dbh->query("SELECT id FROM ttrss_feeds
 					WHERE id = '$feed_id' AND owner_uid = ". $_SESSION["uid"]);
@@ -737,9 +738,9 @@ class Pref_Feeds extends Handler_Protected {
 			<input type=\"hidden\" name=\"op\" value=\"pref-feeds\">
 			<input type=\"hidden\" name=\"feed_id\" value=\"$feed_id\">
 			<input type=\"hidden\" name=\"method\" value=\"uploadicon\">
-			<button dojoType=\"dijit.form.Button\" onclick=\"return uploadFeedIcon();\"
+			<button class=\"small\" dojoType=\"dijit.form.Button\" onclick=\"return uploadFeedIcon();\"
 				type=\"submit\">".__('Replace')."</button>
-			<button dojoType=\"dijit.form.Button\" onclick=\"return removeFeedIcon($feed_id);\"
+			<button class=\"small\" dojoType=\"dijit.form.Button\" onclick=\"return removeFeedIcon($feed_id);\"
 				type=\"submit\">".__('Remove')."</button>
 			</form>";
 
@@ -1259,13 +1260,18 @@ class Pref_Feeds extends Handler_Protected {
 			$interval_qpart = "DATE_SUB(NOW(), INTERVAL 3 MONTH)";
 		}
 
-		$result = $this->dbh->query("SELECT COUNT(*) AS num_inactive FROM ttrss_feeds WHERE
+		// could be performance-intensive and prevent feeds pref-panel from showing
+		if (!defined('_DISABLE_INACTIVE_FEEDS') || !_DISABLE_INACTIVE_FEEDS) {
+			$result = $this->dbh->query("SELECT COUNT(*) AS num_inactive FROM ttrss_feeds WHERE
 					(SELECT MAX(updated) FROM ttrss_entries, ttrss_user_entries WHERE
 						ttrss_entries.id = ref_id AND
 							ttrss_user_entries.feed_id = ttrss_feeds.id) < $interval_qpart AND
 			ttrss_feeds.owner_uid = ".$_SESSION["uid"]);
 
-		$num_inactive = $this->dbh->fetch_result($result, 0, "num_inactive");
+			$num_inactive = $this->dbh->fetch_result($result, 0, "num_inactive");
+		} else {
+			$num_inactive = 0;
+		}
 
 		if ($num_inactive > 0) {
 			$inactive_button = "<button dojoType=\"dijit.form.Button\"

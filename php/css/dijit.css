@@ -15,6 +15,28 @@
 	margin-right : 1em;
 }
 
+.claro .dijitTree .filterRules {
+	display : block;
+	color : #ccc;
+	font-size : 10px;
+	margin-left : 100px;
+}
+
+.claro .dijitTree .filterRules span {
+	display : block;
+	color : green;
+}
+
+#filterDlg_Matches span.filterRule {
+	color : green;
+}
+
+.claro .dijitTree .filterRules span.inverse,
+#filterDlg_Matches span.filterRule.inverse {
+	color : red;
+}
+
+
 .claro .dijitTree .labelParam {
 	float : right;
 	margin-right : 1em;
@@ -69,6 +91,10 @@
 
 .claro .dijitTree .dijitTreeRowSelected {
 	background : white;
+}
+
+.claro #feedTree.dijitTree .dijitTreeRowSelected {
+	box-shadow : -1px 0px 2px -1px rgba(0,0,0,0.1);
 }
 
 .claro .dijitTree .dijitTreeRowHover {
@@ -322,6 +348,10 @@ button[disabled],
 	font-size : 14px;
 	font-weight : normal;
 	line-height : 20px;
+}
+
+.claro .dijitButton.small .dijitButtonText {
+	font-size : 11px;
 }
 
 .claro .dijitMenu {

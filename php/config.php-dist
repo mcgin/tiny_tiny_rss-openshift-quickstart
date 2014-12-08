@@ -104,13 +104,9 @@
 	// Enable client PubSubHubbub support in tt-rss. When disabled, tt-rss
 	// won't try to subscribe to PUSH feed updates.
 
-	// *********************
-	// *** Sphinx search ***
-	// *********************
-
-	define('SPHINX_ENABLED', false);
-	// Enable fulltext search using Sphinx (http://www.sphinxsearch.com)
-	// Please see http://tt-rss.org/wiki/SphinxSearch for more information.
+	// ****************************
+	// *** Sphinx search plugin ***
+	// ****************************
 
 	define('SPHINX_SERVER', 'localhost:9312');
 	// Hostname:port combination for the Sphinx server.
@@ -217,4 +213,3 @@
 	// if necessary (after migrating all new options from this file).
 
 	// vim:ft=php
-?>
