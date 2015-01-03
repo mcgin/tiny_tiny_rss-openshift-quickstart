@@ -8,3 +8,5 @@ else
     echo "***WARNING***: Be sure to update \$OPENSHIFT_REPO_DIR/php/config.php with content" | tee -a ${OPENSHIFT_PHP_LOG_DIR}/deploy.log
     echo "***WARNING***: from \$OPENSHIFT_REPO_DIR/misc/config.php" | tee -a ${OPENSHIFT_PHP_LOG_DIR}/deploy.log
 fi
+
+cp -a ${OPENSHIFT_REPO_DIR}/misc/htaccess ${OPENSHIFT_REPO_DIR}/php/.htaccess
