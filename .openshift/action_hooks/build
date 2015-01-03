@@ -1,5 +1,10 @@
 #!/bin/bash
-# This is a simple build script and will be executed on your CI system if 
-# available.  Otherwise it will execute while your application is stopped
-# before the deploy step.  This script gets executed directly, so it
-# could be python, php, ruby, etc.
+
+echo "Entering build." | tee -a ${OPENSHIFT_PHP_LOG_DIR}/deploy.log
+if [ ! -f ${OPENSHIFT_REPO_DIR}/php/config.php ]; then
+    echo "Configuring TTRSS: Configuration" | tee -a ${OPENSHIFT_PHP_LOG_DIR}/deploy.log
+    cp -a ${OPENSHIFT_REPO_DIR}/misc/config.php ${OPENSHIFT_REPO_DIR}/php/config.php
+else
+    echo "***WARNING***: Be sure to update \$OPENSHIFT_REPO_DIR/php/config.php with content" | tee -a ${OPENSHIFT_PHP_LOG_DIR}/deploy.log
+    echo "***WARNING***: from \$OPENSHIFT_REPO_DIR/misc/config.php" | tee -a ${OPENSHIFT_PHP_LOG_DIR}/deploy.log
+fi
