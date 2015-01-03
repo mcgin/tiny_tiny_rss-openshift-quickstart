@@ -1,3 +1,3 @@
 #!/bin/sh
 
-echo "VACUUM FULL ttrss_entries" | psql
+vacuumdb -f --host=$OPENSHIFT_POSTGRESQL_DB_HOST --port=$OPENSHIFT_POSTGRESQL_DB_PORT
