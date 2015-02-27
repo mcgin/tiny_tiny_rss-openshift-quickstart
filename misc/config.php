@@ -181,8 +181,8 @@
 	// *** Other settings (less important) ***
 	// ***************************************
 
-	define('CHECK_FOR_NEW_VERSION', true);
-	// Check for new versions of tt-rss automatically.
+	define('CHECK_FOR_UPDATES', false);
+	// Check for updates automatically if running Git version
 
 	define('DETECT_ARTICLE_LANGUAGE', false);
 	// Detect article language when updating feeds, presently this is only
@@ -197,7 +197,7 @@
 	// if you experience weird errors and tt-rss failing to start, blank pages
 	// after login, or content encoding errors, disable it.
 
-	define('PLUGINS', 'auth_internal, note, updater');
+	define('PLUGINS', 'auth_internal, note');
 	// Comma-separated list of plugins to load automatically for all users.
 	// System plugins have to be specified here. Please enable at least one
 	// authentication plugin here (auth_*).
@@ -217,4 +217,3 @@
 	// if necessary (after migrating all new options from this file).
 
 	// vim:ft=php
-?>
