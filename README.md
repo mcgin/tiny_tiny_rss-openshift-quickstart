@@ -5,7 +5,7 @@ Create an account at http://openshift.redhat.com/
 
 Create a PHP 5 application + a PostgreSQL 8 cartridge to the app, and import all the quickstart codes:
 
-    rhc app create ttrss php-5 postgresql-8 cron-1.4 --from-code=https://github.com/rnwolf/tiny_tiny_rss-openshift-quickstart.git --timeout=9999
+    rhc app create ttrss php-5.4 postgresql-9.2 cron-1.4 --from-code=https://github.com/mcgin/tiny_tiny_rss-openshift-quickstart.git --timeout=9999
 
 
 You can now checkout your RSS application at:
@@ -19,7 +19,7 @@ This app can be shared by multiple users. The default user credential is "admin"
 Once you have a repository (manually or automatically) you will probably want to add repository as 'upstream':
 
     $ cd ttrss
-    $ git remote add upstream -m master https://github.com/rnwolf/tiny_tiny_rss-openshift-quickstart.git
+    $ git remote add upstream -m master https://github.com/mcgin/tiny_tiny_rss-openshift-quickstart.git
 
 TTRSS is now installed!
 
